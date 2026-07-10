@@ -1,0 +1,99 @@
+name: Update dashboard data
+
+on:
+  # UPDATE 폴더의 엑셀/CSV가 바뀌면 자동 실행
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "UPDATE/**"
+      - "scripts/**"
+      - ".github/workflows/update-dashboard-data.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-dashboard-data
+  cancel-in-progress: true
+
+jobs:
+  update-data:
+    # 이 워크플로가 data.js를 커밋할 때 무한 루프 방지
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Show source files in UPDATE folder
+        shell: pwsh
+        run: |
+          Write-Host "=== UPDATE folder source files ==="
+          if (Test-Path "UPDATE") {
+            Get-ChildItem -Path "UPDATE" -File |
+              Where-Object { $_.Extension -match '\.(xlsx|csv)$' -and $_.Name -notmatch '^~\$' } |
+              ForEach-Object { Write-Host ("  - " + $_.Name + " (" + $_.Length + " bytes)") }
+          } else {
+            Write-Host "  (UPDATE folder missing)"
+          }
+
+      - name: Regenerate data.js and data.json
+        shell: pwsh
+        run: ./scripts/update-all-data.ps1
+
+      - name: Show generated sourceFile fields
+        shell: pwsh
+        run: |
+          Write-Host "=== Generated data source fields ==="
+          foreach ($path in @(
+            "Amazon/data.json",
+            "Meta/data.json",
+            "TikTok/data.json",
+            "Google/data.json"
+          )) {
+            if (-not (Test-Path $path)) {
+              Write-Host "$path : MISSING"
+              continue
+            }
+            $json = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+            if ($json.sourceFiles) {
+              Write-Host ("$path SP=" + $json.sourceFiles.SP + " SB=" + $json.sourceFiles.SB + " updatedAt=" + $json.updatedAt)
+            } else {
+              Write-Host ("$path sourceFile=" + $json.sourceFile + " updatedAt=" + $json.updatedAt)
+            }
+          }
+
+      - name: Commit and push generated data
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -- `
+            "Amazon/data.json" `
+            "Amazon/data.js" `
+            "Meta/data.json" `
+            "Meta/data.js" `
+            "TikTok/data.json" `
+            "TikTok/data.js" `
+            "Google/data.json" `
+            "Google/data.js"
+
+          git status --short
+
+          if (git diff --staged --quiet) {
+            Write-Host "WARNING: data.js/data.json did not change after regeneration."
+            Write-Host "This usually means the script read the same source file content as before."
+            exit 0
+          }
+
+          git commit -m "chore: regenerate dashboard data from source files"
+          git push
+          Write-Host "Pushed regenerated data files. Pages will redeploy shortly."
