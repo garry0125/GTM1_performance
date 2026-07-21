@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GTM1_퍼포먼스</title>
+  <link rel="stylesheet" href="shared/kpi-summary.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f5f5f7;
+      color: #1d1d1f;
+      min-height: 100vh;
+      padding: 48px 24px;
+    }
+    .container { max-width: 1800px; margin: 0 auto; }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 32px;
+      text-align: center;
+    }
+    .pm-load-error {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #fff2f2;
+      color: #b42318;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      display: none;
+      white-space: pre-wrap;
+    }
+    .pm-load-error.is-visible { display: block; }
+    .summary-box {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 32px;
+    }
+    .summary-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      text-transform: lowercase;
+      letter-spacing: 0.04em;
+      color: #86868b;
+      margin-bottom: 16px;
+    }
+    .summary-content .kpi-summary-section {
+      margin-bottom: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+    }
+    .summary-kpi-footnote {
+      margin-top: 12px;
+      text-align: right;
+      font-size: 0.6875rem;
+      color: #86868b;
+    }
+    .platform-nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .platform-card {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 28px 16px;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1d1d1f;
+      text-decoration: none;
+      transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+    }
+    .platform-card:hover {
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+      border-color: #c8c8cc;
+    }
+    .platform-card.meta:hover {
+      border-color: #1877f2;
+      box-shadow: 0 4px 20px rgba(24, 119, 242, 0.15);
+    }
+    .pm-divider {
+      border: none;
+      border-top: 1px solid #d2d2d7;
+      margin: 32px 0 24px;
+    }
+    .pm-charts {
+      margin-top: 0;
+    }
+    .pm-charts-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+    .pm-chart {
+      min-width: 0;
+      min-height: 260px;
+      border: 1px solid #e8e8ed;
+      border-radius: 12px;
+      background: #fff;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    .pm-chart-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 16px;
+      margin-bottom: 8px;
+    }
+    .pm-chart-legend-item {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #6e6e73;
+      white-space: nowrap;
+    }
+    .pm-legend-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: baseline;
+    }
+    .pm-chart svg {
+      display: block;
+      width: 100%;
+      height: 180px;
+      flex: 1;
+      overflow: visible;
+      cursor: crosshair;
+    }
+    .pm-chart-dates {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.6875rem;
+      color: #a1a1a6;
+      margin-top: 6px;
+    }
+    .pm-chart-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      font-size: 0.875rem;
+      color: #86868b;
+    }
+    .pm-chart-tip {
+      position: fixed;
+      z-index: 1000;
+      padding: 6px 9px;
+      background: #1d1d1f;
+      color: #fff;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      white-space: nowrap;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.1s ease;
+      pointer-events: none;
+    }
+    .pm-chart-tip.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+    .pm-chart-tip .tip-date {
+      color: #c7c7cc;
+      margin-bottom: 2px;
+    }
+    .pm-chart-tip .tip-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: baseline;
+    }
+    @media (max-width: 768px) {
+      .platform-nav { grid-template-columns: repeat(2, 1fr); }
+      .pm-charts-row { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 480px) {
+      .platform-nav { grid-template-columns: 1fr; }
+      h1 { font-size: 2rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>GTM1 performance</h1>
+
+    <div class="pm-load-error" id="pm-load-error" role="alert"></div>
+
+    <section class="summary-box" aria-label="summary">
+      <h2 class="summary-label">summary</h2>
+      <div class="summary-content" id="pm-kpi-summary-root"></div>
+      <p class="summary-kpi-footnote">* TikTok에서 $1 = ₩1,550 환율 기준 USD 환산</p>
+    </section>
+
+    <nav class="platform-nav" aria-label="플랫폼 선택">
+      <a href="Amazon.html" class="platform-card">Amazon</a>
+      <a href="Meta.html" class="platform-card meta">Meta</a>
+      <a href="TikTok.html" class="platform-card">TikTok</a>
+      <a href="Google.html" class="platform-card">Google</a>
+    </nav>
+
+    <hr class="pm-divider">
+
+    <section class="pm-charts" aria-label="차트">
+      <div class="pm-charts-row">
+        <div class="pm-chart" id="pm-chart-1"></div>
+        <div class="pm-chart" id="pm-chart-2"></div>
+        <div class="pm-chart" id="pm-chart-3"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="Amazon/data.js"></script>
+  <script src="Meta/data.js"></script>
+  <script src="TikTok/data.js"></script>
+  <script src="Google/data.js"></script>
+  <script src="shared/data-loader.js"></script>
+  <script src="shared/column-resolver.js"></script>
+  <script src="shared/chart-axis-dates.js"></script>
+  <script src="shared/date-range-picker.js"></script>
+  <script src="shared/kpi-summary.js"></script>
+  <script src="shared/pm-kpi-engine.js"></script>
+  <script>
+    const pmLoadError = document.getElementById("pm-load-error");
+
+    function showPmLoadError(message) {
+      if (!pmLoadError) return;
+      pmLoadError.textContent = message || "";
+      pmLoadError.classList.toggle("is-visible", Boolean(message));
+    }
+
+    mountKpiSummary("pm-kpi-summary-root", "pm", {
+      typeRows: ["Amazon", "Meta", "TikTok", "Google", "TOTAL"],
+      typeColumnLabel: "Media"
+    });
+
+    function escapeHtml(str) {
+      return String(str ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
+    const pmFmtInt = (v) => Math.round(Number(v || 0)).toLocaleString();
+    const pmFmtPct = (v) => `${(Number(v || 0) * 100).toFixed(2)}%`;
+    const pmFmtUsd = (v) => `$${Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    const PM_CHART_DEFS = [
+      {
+        id: "pm-chart-1",
+        metrics: [
+          { key: "impr", label: "Impr.", color: "#0071e3", fmt: pmFmtInt },
+          { key: "clicks", label: "Clicks", color: "#34c759", fmt: pmFmtInt }
+        ]
+      },
+      {
+        id: "pm-chart-2",
+        metrics: [
+          { key: "cvr", label: "CVR", color: "#ff9500", fmt: pmFmtPct },
+          { key: "ctr", label: "CTR", color: "#af52de", fmt: pmFmtPct }
+        ]
+      },
+      {
+        id: "pm-chart-3",
+        metrics: [
+          { key: "cvs", label: "CVS", color: "#5856d6", fmt: pmFmtInt },
+          { key: "aov", label: "AOV", color: "#ff2d55", fmt: pmFmtUsd }
+        ]
+      }
+    ];
+
+    const PM_SPARK = { W: 320, H: 170, padX: 6, padY: 12 };
+    let pmChartSeries = [];
+
+    function pmMetricYFn(series, metric) {
+      const vals = series.map((r) => Number(r[metric.key] || 0));
+      const max = Math.max(...vals, 0);
+      const min = Math.min(...vals, 0);
+      const range = max - min || 1;
+      const innerH = PM_SPARK.H - PM_SPARK.padY * 2;
+      return (v) => PM_SPARK.padY + innerH - ((v - min) / range) * innerH;
+    }
+
+    function pmXAt(index, n) {
+      if (n <= 1) return PM_SPARK.W / 2;
+      const innerW = PM_SPARK.W - PM_SPARK.padX * 2;
+      return PM_SPARK.padX + (index / (n - 1)) * innerW;
+    }
+
+    function buildPmChartSvg(series, metrics) {
+      const { W, H, padY } = PM_SPARK;
+      const n = series.length;
+      const markerLine = `<line class="pm-marker-line" x1="0" y1="${padY}" x2="0" y2="${H - padY}" stroke="#c7c7cc" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke" opacity="0"></line>`;
+      let inner = "";
+
+      metrics.forEach((metric, mi) => {
+        const vals = series.map((r) => Number(r[metric.key] || 0));
+        const yAt = pmMetricYFn(series, metric);
+        if (n === 1) {
+          inner += `<circle cx="${pmXAt(0, n).toFixed(1)}" cy="${yAt(vals[0]).toFixed(1)}" r="3" fill="${metric.color}"></circle>`;
+        } else {
+          const pts = vals.map((v, i) => `${pmXAt(i, n).toFixed(1)},${yAt(v).toFixed(1)}`);
+          inner += `<path d="M${pts.join(" L")}" fill="none" stroke="${metric.color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>`;
+          inner += `<circle cx="${pmXAt(n - 1, n).toFixed(1)}" cy="${yAt(vals[n - 1]).toFixed(1)}" r="2.6" fill="${metric.color}" vector-effect="non-scaling-stroke"></circle>`;
+        }
+        inner += `<circle class="pm-marker-dot" data-line="${mi}" cx="0" cy="0" r="3.2" fill="#fff" stroke="${metric.color}" stroke-width="1.6" vector-effect="non-scaling-stroke" opacity="0"></circle>`;
+      });
+
+      return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${markerLine}${inner}</svg>`;
+    }
+
+    function renderPmCharts() {
+      const range = window.KpiSummary ? window.KpiSummary.getDateRange() : { start: "", end: "" };
+      const series = (window.PmKpiEngine && window.PmKpiEngine.buildPmDailySeries)
+        ? window.PmKpiEngine.buildPmDailySeries(range.start, range.end)
+        : [];
+      pmChartSeries = series;
+
+      PM_CHART_DEFS.forEach((def) => {
+        const el = document.getElementById(def.id);
+        if (!el) return;
+        if (!series.length) {
+          el.innerHTML = `<div class="pm-chart-empty">데이터가 없습니다.</div>`;
+          return;
+        }
+        const legend = def.metrics.map((m) => {
+          const latest = Number(series[series.length - 1][m.key] || 0);
+          return `<span class="pm-chart-legend-item"><span class="pm-legend-dot" style="background:${m.color}"></span>${escapeHtml(m.label)} <strong style="color:${m.color}">${escapeHtml(m.fmt(latest))}</strong></span>`;
+        }).join("");
+        el.innerHTML = [
+          `<div class="pm-chart-head">${legend}</div>`,
+          buildPmChartSvg(series, def.metrics),
+          window.PerformanceChartAxis.buildAxisDatesHtml(series, "pm-chart-dates", escapeHtml)
+        ].join("");
+      });
+    }
+
+    (function initPmChartHover() {
+      let tip = null;
+      const getTip = () => {
+        if (!tip) {
+          tip = document.createElement("div");
+          tip.className = "pm-chart-tip";
+          document.body.appendChild(tip);
+        }
+        return tip;
+      };
+      const clearMarkers = () => {
+        document.querySelectorAll(".pm-chart .pm-marker-line, .pm-chart .pm-marker-dot")
+          .forEach((el) => el.setAttribute("opacity", "0"));
+      };
+      const hide = () => {
+        if (tip) tip.classList.remove("visible");
+        clearMarkers();
+      };
+      const defById = (id) => PM_CHART_DEFS.find((d) => d.id === id);
+
+      document.addEventListener("mousemove", (e) => {
+        const chart = e.target.closest ? e.target.closest(".pm-chart") : null;
+        if (!chart) { hide(); return; }
+        const def = defById(chart.id);
+        const series = pmChartSeries;
+        if (!def || !series || !series.length) { hide(); return; }
+        const svg = chart.querySelector("svg");
+        if (!svg) { hide(); return; }
+
+        const rect = svg.getBoundingClientRect();
+        if (!rect.width) { hide(); return; }
+        let ratio = (e.clientX - rect.left) / rect.width;
+        ratio = Math.max(0, Math.min(1, ratio));
+        const n = series.length;
+        const index = n <= 1 ? 0 : Math.round(ratio * (n - 1));
+        const row = series[index];
+        if (!row) { hide(); return; }
+
+        clearMarkers();
+        const mx = pmXAt(index, n);
+        const line = svg.querySelector(".pm-marker-line");
+        if (line) {
+          line.setAttribute("x1", mx.toFixed(1));
+          line.setAttribute("x2", mx.toFixed(1));
+          line.setAttribute("opacity", "0.7");
+        }
+        def.metrics.forEach((metric, mi) => {
+          const yAt = pmMetricYFn(series, metric);
+          const my = yAt(Number(row[metric.key] || 0));
+          const dot = svg.querySelector(`.pm-marker-dot[data-line="${mi}"]`);
+          if (dot) {
+            dot.setAttribute("cx", mx.toFixed(1));
+            dot.setAttribute("cy", my.toFixed(1));
+            dot.setAttribute("opacity", "1");
+          }
+        });
+
+        const el = getTip();
+        const rowsHtml = def.metrics.map((m) =>
+          `<div><span class="tip-dot" style="background:${m.color}"></span>${escapeHtml(m.label)} <strong>${escapeHtml(m.fmt(Number(row[m.key] || 0)))}</strong></div>`
+        ).join("");
+        el.innerHTML = `<div class="tip-date">${escapeHtml(row.date)}</div>${rowsHtml}`;
+        el.classList.add("visible");
+        const tipRect = el.getBoundingClientRect();
+        let left = e.clientX + 14;
+        if (left + tipRect.width > window.innerWidth - 8) left = e.clientX - tipRect.width - 14;
+        if (left < 8) left = 8;
+        let top = e.clientY - tipRect.height - 12;
+        if (top < 8) top = e.clientY + 16;
+        el.style.left = `${left}px`;
+        el.style.top = `${top}px`;
+      });
+
+      window.addEventListener("scroll", hide, true);
+    })();
+
+    if (window.KpiSummary) {
+      window.KpiSummary.onDateChange = () => {
+        if (window.PmKpiEngine) window.PmKpiEngine.refreshPmKpiSummary();
+        renderPmCharts();
+      };
+    }
+
+    async function initPmPage() {
+      showPmLoadError("");
+      if (!window.PmKpiEngine) return;
+      try {
+        await window.PmKpiEngine.initPmKpiSummary();
+        renderPmCharts();
+      } catch (error) {
+        showPmLoadError(error && error.message ? error.message : String(error));
+      }
+    }
+
+    initPmPage();
+  </script>
+</body>
+</html>
